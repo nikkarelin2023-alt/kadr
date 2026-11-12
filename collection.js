@@ -1,0 +1,48 @@
+const hydrationAttempted=new Set();
+const discoveryRender=render;
+let searchText='',searchResults=[],searchPage=0,searchMore=false,searchBusy=false,searchError='',searchVersion=0;
+function emptyListFilters(){return {enabled:false,format:'any',mood:'',genres:[],era:[],countries:[],ratingEnabled:false,rating:7,ended:false}}
+let listFilters=emptyListFilters(),listDraft=emptyListFilters(),listEditorOpen=false;
+function copyFilters(value){return {...value,genres:[...value.genres],era:[...value.era],countries:[...value.countries]}}
+
+function rememberItem(f,kind){state.entries[f.id]=f;const other=kind==='saved'?'watched':'saved';state[other]=state[other].filter(id=>id!==f.id);if(!state[kind].includes(f.id))state[kind].push(f.id);persist()}
+function registerItems(items){items.forEach(f=>{const pos=films.findIndex(x=>x.id===f.id);if(pos<0)films.push(f);else films[pos]=f;if(state.entries[f.id])state.entries[f.id]=f});persist()}
+async function runSearch(more=false){
+ const input=app.querySelector('#search-input');if(!more)searchText=input.value.trim();if(!searchText)return;
+ const version=++searchVersion;searchBusy=true;searchError='';if(!more){searchPage=0;searchResults=[]}render();
+ try{const response=await fetch('/api/search?'+new URLSearchParams({q:searchText,page:String(searchPage+1)}));if(!response.ok)throw Error();const result=await response.json();if(version!==searchVersion)return;const items=normalizeTMDB(result.items);registerItems(items);const seen=new Set(searchResults.map(f=>f.id));searchResults.push(...items.filter(f=>!seen.has(f.id)));searchPage++;searchMore=Boolean(result.hasMore)}catch{if(version===searchVersion)searchError='Поиск недоступен. Попробуй ещё раз.'}finally{if(version===searchVersion){searchBusy=false;if(page==='search')render()}}
+}
+function searchScreen(){
+ document.body.classList.remove('swipe-screen');document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page==='search'));
+ app.innerHTML=`<div class="eyebrow">Найти конкретную историю</div><h1>Поиск фильмов и сериалов</h1><form id="search-form" class="search-form"><label for="search-input">Название</label><div class="row"><input id="search-input" type="search" value="${escapeHtml(searchText)}" placeholder="Например, Интерстеллар" required maxlength="150"><button class="primary" ${searchBusy?'disabled':''}>Найти</button></div></form><p role="status">${searchBusy?'Ищем в TMDB…':searchError||(!searchResults.length&&searchPage?'Ничего не найдено. Попробуй другое название.':'Поиск не ограничен условиями твоей подборки.')}</p><div class="grid">${searchResults.map(f=>`<section>${card(f,true)}<div class="search-actions"><button class="secondary" data-add="${f.id}:saved" ${state.saved.includes(f.id)?'disabled':''}>${state.saved.includes(f.id)?'✓ В списке':'♡ Хочу посмотреть'}</button><button class="secondary" data-add="${f.id}:watched" ${state.watched.includes(f.id)?'disabled':''}>${state.watched.includes(f.id)?'✓ Просмотрено':'Уже смотрел'}</button></div></section>`).join('')}</div>${searchMore?`<button id="search-more" class="primary" ${searchBusy?'disabled':''}>Ещё результаты</button>`:''}`;
+ app.querySelector('#search-form').onsubmit=e=>{e.preventDefault();runSearch()};app.querySelector('#search-more')?.addEventListener('click',()=>runSearch(true));app.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const[id,kind]=b.dataset.add.split(':');rememberItem(films.find(f=>f.id===Number(id)),kind);render()});
+ // The standard list card's rating controls are not used inside search results.
+ app.querySelectorAll('.rating').forEach(e=>e.remove());
+}
+function filterPanel(){const p=listDraft;return `<form id="list-filter-form" class="list-filters"><h2>Настройки фильтра</h2><label>Формат<select data-list="format"><option value="any">Любой</option><option value="movie">Фильм</option><option value="series">Сериал</option></select></label><label>Настроение<select data-list="mood"><option value="">Любое</option>${Object.entries(moods).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label><p>Жанры — любой из выбранных. Пустой выбор означает любые.</p>${chips(Object.entries(genreChoices),p.genres,'listGenres',true)}<p>Страны</p>${chips([['any','Любая страна']],p.countries.length?'':'any','listAllCountries')}${chips(Object.entries(CatalogRules.countries),p.countries,'listCountries',true)}<p>Периоды</p>${chips([['old','До 2000'],['zero','2000–2009'],['ten','2010–2019'],['new','С 2020']],p.era,'listEra',true)}<label><input id="list-rating-enabled" type="checkbox" ${p.ratingEnabled?'checked':''}> Учитывать рейтинг TMDB</label><label for="list-rating">Не ниже <output id="list-rating-value">${p.rating.toFixed(1)}</output></label><input id="list-rating" type="range" min="0" max="9" step="0.5" value="${p.rating}"><label><input id="list-ended" type="checkbox" ${p.ended?'checked':''}> Только завершённые сериалы</label><p class="hint">Изменения вступят в силу после нажатия «Применить». Здесь условия не ослабляются.</p><div class="filter-actions"><button type="submit" class="primary">Применить</button><button type="button" id="list-cancel" class="secondary">Отмена</button></div></form>`}
+function openListEditor(){listDraft=copyFilters(listFilters);listEditorOpen=true;render()}
+function applyListFilters(){listFilters={...copyFilters(listDraft),enabled:true};listEditorOpen=false;render()}
+function resetListFilters(){listFilters=emptyListFilters();listDraft=emptyListFilters();listEditorOpen=false;render()}
+function bindListEditor(){const section=app.querySelector('#list-filter-form');
+ section.querySelectorAll('[data-list]').forEach(el=>{el.value=listDraft[el.dataset.list];el.onchange=()=>listDraft[el.dataset.list]=el.value});
+ const updateChips=()=>section.querySelectorAll('[data-key]').forEach(b=>{const key=b.dataset.key,value=b.dataset.value;const selected=key==='listAllCountries'?!listDraft.countries.length:listDraft[key==='listGenres'?'genres':key==='listCountries'?'countries':'era'].includes(value);b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected))});
+ section.querySelectorAll('[data-key]').forEach(b=>{b.type='button';b.onclick=()=>{if(b.dataset.key==='listAllCountries')listDraft.countries=[];else{const key=b.dataset.key==='listGenres'?'genres':b.dataset.key==='listCountries'?'countries':'era',value=b.dataset.value;listDraft[key]=listDraft[key].includes(value)?listDraft[key].filter(x=>x!==value):[...listDraft[key],value]}updateChips()}});
+ section.querySelector('#list-rating-enabled').onchange=e=>listDraft.ratingEnabled=e.target.checked;
+ section.querySelector('#list-ended').onchange=e=>listDraft.ended=e.target.checked;
+ section.querySelector('#list-rating').oninput=e=>{listDraft.rating=Number(e.target.value);section.querySelector('#list-rating-value').textContent=listDraft.rating.toFixed(1)};
+ section.onsubmit=e=>{e.preventDefault();applyListFilters()};section.querySelector('#list-cancel').onclick=()=>{listEditorOpen=false;render()};
+}
+function savedScreen(){
+ document.body.classList.remove('swipe-screen');document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page==='saved'));persist();
+ const all=state.saved.map(id=>films.find(f=>f.id===id)).filter(Boolean);const released=all.filter(f=>CatalogRules.isReleased(f)||(!f.tmdb&&f.year>0&&f.year<Number(CatalogRules.today().slice(0,4))));
+ const shown=released.filter(f=>!listFilters.enabled||(CatalogRules.matches(f,listFilters)&&(!listFilters.mood||!state.moodCorrections?.[f.id]?.[listFilters.mood])));
+ app.innerHTML=`<div class="eyebrow">Личная коллекция</div><h1>Хочу посмотреть</h1>${listEditorOpen?filterPanel():`<div class="filter-actions"><button id="list-edit" class="primary">${listFilters.enabled?'Изменить фильтр':'Настроить фильтр'}</button>${listFilters.enabled?'<button id="list-reset" class="secondary">Сбросить фильтр</button>':''}</div><p role="status">Показано ${shown.length} из ${released.length} вышедших фильмов и сериалов.${all.length>released.length?' Будущие релизы и карточки с неподтверждённой датой скрыты, но сохранены.':''}</p>${shown.length?'<div class="grid">'+shown.map(f=>card(f,true)).join('')+'</div>':'<div class="empty"><h2>'+(!all.length?'Список пока пуст':'Нет совпадений')+'</h2><p>'+(!all.length?'Сохрани фильм из подборки или поиска.':'Измени параметры или сбрось фильтр, чтобы увидеть весь доступный список.')+'</p></div>'}` }`;
+ if(listEditorOpen){bindListEditor();return}app.querySelector('#list-edit').onclick=openListEditor;app.querySelector('#list-reset')?.addEventListener('click',resetListFilters);
+ app.querySelectorAll('[data-watched]').forEach(b=>b.onclick=()=>{const f=films.find(f=>f.id===Number(b.dataset.watched));rememberItem(f,'watched');render()});app.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{state.saved=state.saved.filter(id=>id!==Number(b.dataset.remove));persist();render()});
+}
+
+render=function(){if(page==='search')return searchScreen();if(page==='saved'){savedScreen();hydrateSaved();return}discoveryRender()};
+render();
+
+
+async function hydrateSaved(){const outdated=state.saved.map(id=>films.find(f=>f.id===id)).filter(f=>f?.tmdb&&(!f.genreIds||!f.countryCodes||!f.releaseDate)&&!hydrationAttempted.has(f.id));for(const f of outdated){hydrationAttempted.add(f.id);try{const response=await fetch('/api/search?'+new URLSearchParams({id:String(f.id-(f.type==='series'?200000000:100000000)),type:f.type==='series'?'tv':'movie'}));if(!response.ok)throw Error();const data=await response.json();registerItems(normalizeTMDB(data.items));if(page==='saved'&&!listEditorOpen)render()}catch{toast('Часть старых карточек не удалось обновить. Фильтры для них могут быть неполными.')}}}

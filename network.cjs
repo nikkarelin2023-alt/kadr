@@ -1,7 +1,11 @@
 const {spawn}=require('node:child_process');
 // Use the same Windows network stack as the existing TMDB adapter.
 const shell=process.env.KADR_POWERSHELL||'C:\\Users\\User\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe';
-function request(url,{method='GET',headers={},body}={}){
+async function request(url,{method='GET',headers={},body}={}){
+ if(process.platform!=='win32'||process.env.KADR_NETWORK==='fetch'){
+  const response=await fetch(url,{method,headers:{...headers,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(25000)});
+  const text=await response.text();return {status:response.status,data:text?JSON.parse(text):null};
+ }
  const script=`$ErrorActionPreference='Stop';[Console]::InputEncoding=[System.Text.Encoding]::UTF8;[Console]::OutputEncoding=[System.Text.Encoding]::UTF8
  $inputData=ConvertFrom-Json ([Console]::In.ReadToEnd()) -AsHashtable
  $p=@{Uri=$inputData.url;Method=$inputData.method;Headers=$inputData.headers;TimeoutSec=25;SkipHttpErrorCheck=$true}

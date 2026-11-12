@@ -1,0 +1,12 @@
+.git
+node_modules
+.env
+.env.local
+.env.*.local
+.env.production
+.auth-key
+.auth-sessions
+data
+backups
+screenshots
+*.log

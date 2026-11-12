@@ -1,6 +1,4 @@
 const Rules=require('./catalog-rules.js');
-const {execFile}=require('node:child_process');
-const shell='C:\\Users\\User\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe';
 const genres={comedy:[35,35],drama:[18,18],adventure:[12,10759],action:[28,10759],crime:[80,80],mystery:[9648,9648],fantasy:[14,10765],scifi:[878,10765],horror:[27,null],thriller:[53,null],romance:[10749,null],animation:[16,16],family:[10751,10751],documentary:[99,99]};
 const cache=new Map();
 function buildQueries(params){
@@ -29,15 +27,9 @@ function buildQueries(params){
 }
 async function discover(params){
  const queries=buildQueries(params);if(!queries.length)return {items:[],hasMore:false};
- const key=JSON.stringify(queries);const old=cache.get(key);if(old&&old.expires>Date.now())return old.value;
- const script=`$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.Encoding]::UTF8
- $queries=ConvertFrom-Json $env:KADR_QUERIES
- $h=@{Authorization='Bearer '+$env:TMDB_READ_TOKEN}; $items=@(); $more=$false
- foreach($q in $queries){$list=Invoke-RestMethod -Uri $q.url -Headers $h -TimeoutSec 20; if($list.page -lt [Math]::Min(500,$list.total_pages)){$more=$true}; foreach($item in $list.results){$items+=@{id=$item.id;kind=$q.kind}}}
- $details=@($items | ForEach-Object -Parallel {$ErrorActionPreference='Stop';$h=@{Authorization='Bearer '+$env:TMDB_READ_TOKEN};$d=Invoke-RestMethod -Uri ('https://api.themoviedb.org/3/'+$_.kind+'/'+$_.id+'?language=ru-RU') -Headers $h -TimeoutSec 20;$d | Add-Member -NotePropertyName media_type -NotePropertyValue $_.kind;$d} -ThrottleLimit 5)
- ConvertTo-Json -InputObject @{items=$details;hasMore=$more} -Depth 30 -Compress`;
- const value=await new Promise((resolve,reject)=>execFile(shell,['-NoProfile','-NonInteractive','-Command',script],{env:{...process.env,KADR_QUERIES:JSON.stringify(queries)},timeout:150000,maxBuffer:15000000,windowsHide:true},(err,out)=>{if(err)return reject(new Error('TMDB unavailable'));try{resolve(JSON.parse(out.replace(/^\uFEFF/,'')))}catch{reject(new Error('Invalid response'))}}));
- value.items=value.items.filter(f=>Rules.isReleased(f));
- if(cache.size>100)cache.delete(cache.keys().next().value);cache.set(key,{value,expires:Date.now()+3600000});return value;
+ const key=JSON.stringify(queries),old=cache.get(key);if(old&&old.expires>Date.now())return old.value;
+ const {tmdb,details}=require('./tmdb.cjs');const items=[];let hasMore=false;
+ for(const q of queries){const endpoint=q.url.replace('https://api.themoviedb.org/3','');const list=await tmdb(endpoint);hasMore ||= list.page<Math.min(500,list.total_pages);items.push(...list.results.map(f=>({id:f.id,kind:q.kind})))}
+ const value={items:(await details(items)).filter(f=>Rules.isReleased(f)),hasMore};if(cache.size>100)cache.delete(cache.keys().next().value);cache.set(key,{value,expires:Date.now()+3600000});return value;
 }
 module.exports={discover,buildQueries};

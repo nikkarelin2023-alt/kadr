@@ -1,8 +1,15 @@
 .env
 .env.local
 .env.*.local
+.env.production
 node_modules/
 *.log
 
 .auth-key
 .auth-sessions
+
+data/
+backups/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

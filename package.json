@@ -1,0 +1,17 @@
+{
+  "name": "kadr",
+  "version": "0.2.0",
+  "private": true,
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node server.cjs",
+    "test": "node test-catalog.cjs && node test-auth-client.cjs && node test-account.cjs",
+    "backup": "node scripts/backup.cjs",
+    "smtp:check": "node scripts/check-smtp.cjs"
+  },
+  "dependencies": {
+    "nodemailer": "10.5.0"
+  }
+}

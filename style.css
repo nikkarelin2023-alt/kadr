@@ -42,3 +42,17 @@ body{overflow-x:hidden}.card{position:relative;user-select:none;transition:trans
 .filter-actions{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}.filter-actions button{min-height:44px}.list-filters input[type=range]{width:100%;height:36px}.list-filters h2{margin-top:0}
 
 #account-button{display:inline-flex;align-items:center;justify-content:center;min-width:76px;min-height:40px;padding:9px 20px;border:1px solid #65774b;border-radius:999px;background:#252c1e;color:#d8f590;font:inherit;font-size:12px;font-weight:600;line-height:1;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s}#account-button:focus-visible{outline:2px solid #d8f590;outline-offset:4px}@media(hover:hover){#account-button:hover{background:#333e24;border-color:#d8f590}}@media(max-width:700px){.swipe-screen #account-button{min-width:64px;min-height:34px;padding:7px 16px}}.account-dialog{width:min(92vw,460px);max-height:85dvh;overflow-y:auto;background:#1b1d18;color:#f4f2ee;border:1px solid #53613d;border-radius:20px;padding:25px;overscroll-behavior:contain}.account-dialog::backdrop{background:#000b}.account-dialog h2{padding-right:30px}.account-close{float:right;padding:5px 12px}.account-dialog label{display:block;font-size:13px;margin:14px 0 8px}.account-dialog input{display:block;width:100%;padding:13px;border-radius:10px;background:#262d1e;color:#f4f2ee;border:1px solid #65774b;font-size:16px}.account-dialog form>.primary{width:100%;margin:15px 0}.account-dialog>.secondary{margin:6px 8px 6px 0}.account-error{color:#f2b9a3;font-size:13px}.account-import{border:1px solid #52633c;border-radius:12px;padding:15px;margin:16px 0}
+
+/* Saved cards have fixed slots so metadata and descriptions cannot shift the grid. */
+.saved-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));align-items:start}
+.saved-grid>.card{height:660px;min-width:0;max-width:none;margin:0;display:flex;flex-direction:column}
+.saved-grid>.card .art,.saved-grid>.card .art:has(.poster){height:220px;min-height:220px;flex:0 0 220px}
+.saved-grid>.card .info{flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;padding:18px}
+.saved-grid>.card .info h2{font-size:20px;line-height:22px;height:44px;flex:0 0 44px;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.saved-grid>.card .meta,.saved-grid>.card .country-line{font-size:11px;line-height:13px;height:26px;flex:0 0 26px;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.saved-grid>.card .synopsis{font-size:13px;line-height:18px;height:54px;flex:0 0 54px;margin:0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.saved-grid>.card .description-details{height:20px;flex:0 0 20px;margin:0}
+.saved-grid>.card .description-details summary{line-height:20px}
+.saved-grid>.card .source-meta{font-size:11px;line-height:14px;height:58px;flex:0 0 58px;overflow:hidden}
+.saved-grid>.card .rating{margin: auto 0 0;min-height:40px;flex:0 0 40px;align-items:stretch}
+.saved-grid>.card .rating button{font-size:12px;padding:8px 10px}
